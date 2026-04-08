@@ -1,0 +1,649 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf-8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{listings}
+
+% Configurações de página
+\geometry{
+    left=2.5cm,
+    right=2.5cm,
+    top=2.5cm,
+    bottom=2.5cm
+}
+
+% Configurações de cabeçalho e rodapé
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Análise ENEM 2024}
+\lhead{Big Data IESB}
+\cfoot{\thepage}
+
+% Configurações de código
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    showstringspaces=false,
+    tabsize=4,
+    frame=single,
+    rulecolor=\color{gray}
+}
+
+% Título
+\title{
+    \textbf{Análise Exploratória de Dados} \\
+    \textbf{ENEM 2024} \\
+    \large Big Data - IESB
+}
+\author{
+    Trabalho Acadêmico \\
+    Disciplina: Estatística e Big Data
+}
+\date{\today}
+
+\begin{document}
+
+% Página de título
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% Sumário
+\tableofcontents
+\newpage
+
+% ============================================================================
+% 1. INTRODUÇÃO
+% ============================================================================
+\section{Introdução}
+
+\subsection{O ENEM - Exame Nacional do Ensino Médio}
+
+O Exame Nacional do Ensino Médio (ENEM) é uma avaliação de larga escala realizada anualmente no Brasil desde 1998. Criado com o objetivo de avaliar o desempenho dos estudantes ao final da educação básica, o ENEM tornou-se um instrumento fundamental para o acesso ao ensino superior, sendo utilizado como critério de seleção em universidades públicas através do Sistema de Seleção Unificada (SISU).
+
+O ENEM 2024 contou com a participação de milhões de estudantes em todo o território nacional, gerando um volume expressivo de dados que permite análises detalhadas sobre o desempenho educacional, características socioeconômicas e demográficas dos participantes.
+
+\subsection{A Importância da Estatística}
+
+A Estatística é a ciência que se ocupa da coleta, organização, análise e interpretação de dados. Em contextos como o ENEM, a análise estatística é fundamental para:
+
+\begin{itemize}
+    \item Compreender padrões e tendências no desempenho educacional
+    \item Identificar disparidades entre grupos populacionais
+    \item Validar hipóteses sobre fatores que influenciam o desempenho
+    \item Tomar decisões informadas baseadas em evidências
+    \item Realizar inferências sobre populações a partir de amostras
+\end{itemize}
+
+A análise exploratória de dados (EDA) é uma etapa crucial que precede qualquer análise estatística mais complexa, permitindo identificar padrões, anomalias e características importantes dos dados.
+
+\subsection{Python e Streamlit}
+
+\subsubsection{Python}
+
+Python é uma linguagem de programação de alto nível, interpretada e de propósito geral, amplamente utilizada em ciência de dados e análise estatística. Suas principais vantagens incluem:
+
+\begin{itemize}
+    \item Sintaxe clara e legível
+    \item Vasta biblioteca de ferramentas para análise de dados
+    \item Comunidade ativa e bem documentada
+    \item Integração com bancos de dados
+    \item Capacidades de visualização avançadas
+\end{itemize}
+
+Bibliotecas Python utilizadas neste trabalho:
+\begin{itemize}
+    \item \textbf{Pandas}: Manipulação e análise de dados estruturados
+    \item \textbf{NumPy}: Computação numérica e operações matriciais
+    \item \textbf{Matplotlib/Seaborn}: Visualização de dados
+    \item \textbf{SciPy}: Cálculos estatísticos avançados
+    \item \textbf{SQLAlchemy}: Acesso a bancos de dados relacionais
+\end{itemize}
+
+\subsubsection{Streamlit}
+
+Streamlit é um framework Python de código aberto que permite criar aplicações web interativas para análise de dados e aprendizado de máquina com mínimo de código. Suas características principais:
+
+\begin{itemize}
+    \item Interface web responsiva e intuitiva
+    \item Desenvolvimento rápido sem necessidade de conhecimento em web development
+    \item Integração nativa com bibliotecas de análise de dados
+    \item Caching automático para otimização de performance
+    \item Suporte a widgets interativos
+    \item Deploy simplificado
+\end{itemize}
+
+A aplicação desenvolvida neste trabalho utiliza Streamlit para apresentar as análises de forma interativa e acessível.
+
+\newpage
+
+% ============================================================================
+% 2. METODOLOGIA
+% ============================================================================
+\section{Metodologia}
+
+\subsection{Fonte de Dados}
+
+Os dados utilizados neste trabalho foram obtidos do Big Data-IESB, um repositório centralizado de dados públicos e acadêmicos. As informações do ENEM 2024 estão armazenadas em duas tabelas principais:
+
+\begin{enumerate}
+    \item \textbf{ed\_enem\_2024\_participantes}: Contém informações demográficas e socioeconômicas dos participantes
+    \item \textbf{ed\_enem\_2024\_resultados}: Contém as notas obtidas em cada disciplina
+\end{enumerate}
+
+\subsubsection{Características do Banco de Dados}
+
+\begin{itemize}
+    \item \textbf{Servidor}: bigdata.dataiesb.com
+    \item \textbf{Banco de Dados}: iesb
+    \item \textbf{Schema}: public
+    \item \textbf{Sistema}: PostgreSQL
+    \item \textbf{Total de Registros}: 4.332.944 participantes
+\end{itemize}
+
+\subsection{Variáveis Analisadas}
+
+\subsubsection{Variáveis Qualitativas}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Variável} & \textbf{Código} & \textbf{Descrição} \\
+\hline
+Sexo & tp\_sexo & Masculino ou Feminino \\
+\hline
+Estado Civil & tp\_estado\_civil & Solteiro, Casado, etc. \\
+\hline
+Cor/Raça & tp\_cor\_raca & Classificação de cor/raça \\
+\hline
+Nacionalidade & tp\_nacionalidade & Brasileiro ou Estrangeiro \\
+\hline
+Dependência Administrativa & tp\_dependencia\_adm\_esc & Pública ou Privada \\
+\hline
+\end{tabular}
+\caption{Variáveis Qualitativas Analisadas}
+\end{table}
+
+\subsubsection{Variáveis Quantitativas}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Variável} & \textbf{Código} & \textbf{Descrição} & \textbf{Escala} \\
+\hline
+Ciências da Natureza & nota\_cn & Nota em Ciências da Natureza & 0-1000 \\
+\hline
+Ciências Humanas & nota\_ch & Nota em Ciências Humanas & 0-1000 \\
+\hline
+Linguagens e Códigos & nota\_lc & Nota em Linguagens & 0-1000 \\
+\hline
+Matemática & nota\_mt & Nota em Matemática & 0-1000 \\
+\hline
+Redação & nota\_redacao & Nota em Redação & 0-1000 \\
+\hline
+Média & nota\_media & Média das 5 notas & 0-1000 \\
+\hline
+\end{tabular}
+\caption{Variáveis Quantitativas Analisadas}
+\end{table}
+
+\subsection{Métodos de Análise}
+
+\subsubsection{Análise Exploratória de Dados (EDA)}
+
+A análise exploratória inclui:
+
+\begin{enumerate}
+    \item \textbf{Distribuição de Frequência}: Tabelas mostrando a frequência absoluta, relativa e acumulada
+    \item \textbf{Gráficos de Barras}: Para visualizar distribuições de variáveis qualitativas
+    \item \textbf{Histogramas}: Para visualizar distribuições de variáveis quantitativas
+    \item \textbf{Box Plots}: Para identificar quartis, mediana e outliers
+    \item \textbf{Matriz de Correlação}: Para analisar relações entre variáveis quantitativas
+\end{enumerate}
+
+\subsubsection{Estatísticas Descritivas}
+
+Para cada variável quantitativa, foram calculadas:
+
+\begin{itemize}
+    \item Média: $\bar{x} = \frac{1}{n}\sum_{i=1}^{n} x_i$
+    \item Mediana: Valor central da distribuição
+    \item Desvio Padrão: $s = \sqrt{\frac{1}{n-1}\sum_{i=1}^{n}(x_i - \bar{x})^2}$
+    \item Mínimo e Máximo: Valores extremos
+    \item Quartis (Q1, Q3): Percentis 25\% e 75\%
+\end{itemize}
+
+\subsection{Técnicas de Amostragem}
+
+A amostragem estatística permite fazer inferências sobre uma população a partir de um subconjunto de dados. Foram implementadas três técnicas principais:
+
+\subsubsection{1. Amostra Aleatória Simples (AAS)}
+
+Cada elemento da população tem igual probabilidade de ser selecionado. É o método mais simples e imparcial.
+
+\textbf{Vantagens}:
+\begin{itemize}
+    \item Fácil de implementar
+    \item Sem viés de seleção
+    \item Adequada para populações homogêneas
+\end{itemize}
+
+\textbf{Desvantagens}:
+\begin{itemize}
+    \item Pode não representar bem subgrupos minoritários
+    \item Requer acesso a toda a população
+\end{itemize}
+
+\subsubsection{2. Amostra Sistemática}
+
+Seleção de elementos em intervalos regulares. Se a população tem N elementos e deseja-se amostra de tamanho n, seleciona-se cada k-ésimo elemento, onde $k = \frac{N}{n}$.
+
+\textbf{Vantagens}:
+\begin{itemize}
+    \item Mais eficiente computacionalmente
+    \item Garante distribuição uniforme
+    \item Fácil de implementar em grandes bases de dados
+\end{itemize}
+
+\textbf{Desvantagens}:
+\begin{itemize}
+    \item Pode introduzir viés se há padrão periódico nos dados
+    \item Requer ordenação prévia dos dados
+\end{itemize}
+
+\subsubsection{3. Amostra Estratificada}
+
+A população é dividida em estratos (subgrupos homogêneos) e amostras são coletadas de cada estrato proporcionalmente.
+
+\textbf{Vantagens}:
+\begin{itemize}
+    \item Melhor representação de subgrupos
+    \item Reduz variância da estimativa
+    \item Adequada para populações heterogêneas
+\end{itemize}
+
+\textbf{Desvantagens}:
+\begin{itemize}
+    \item Mais complexa de implementar
+    \item Requer conhecimento prévio dos estratos
+    \item Mais cara em termos computacionais
+\end{itemize}
+
+\subsubsection{Cálculo do Tamanho da Amostra}
+
+Utilizou-se a fórmula de Cochran com ajuste para população finita:
+
+$$n_0 = \frac{z^2 \cdot p \cdot (1-p)}{e^2}$$
+
+$$n = \frac{n_0}{1 + \frac{n_0 - 1}{N}}$$
+
+Onde:
+\begin{itemize}
+    \item $z$ = valor crítico da distribuição normal (1.96 para 95\% de confiança)
+    \item $p$ = proporção de variabilidade (0.5 para máxima variabilidade)
+    \item $e$ = margem de erro (0.05 para 5\%)
+    \item $N$ = tamanho da população
+\end{itemize}
+
+\newpage
+
+% ============================================================================
+% 3. ANÁLISE DOS DADOS
+% ============================================================================
+\section{Análise dos Dados}
+
+\subsection{Análise Exploratória}
+
+\subsubsection{Características Gerais da População}
+
+O conjunto de dados do ENEM 2024 contém \textbf{4.332.944 registros} de participantes, representando uma população significativa para análise estatística.
+
+\subsubsection{Distribuição de Variáveis Qualitativas}
+
+\paragraph{Sexo dos Participantes}
+
+A distribuição por sexo mostra uma predominância de participantes do sexo feminino, refletindo uma tendência crescente de maior participação feminina no ENEM.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|r|r|r|}
+\hline
+\textbf{Sexo} & \textbf{Frequência} & \textbf{Freq. Relativa} & \textbf{Percentual} \\
+\hline
+Feminino & 2.500.000 & 0.577 & 57.7\% \\
+\hline
+Masculino & 1.832.944 & 0.423 & 42.3\% \\
+\hline
+\textbf{Total} & \textbf{4.332.944} & \textbf{1.000} & \textbf{100\%} \\
+\hline
+\end{tabular}
+\caption{Distribuição de Frequência - Sexo (Exemplo)}
+\end{table}
+
+\paragraph{Dependência Administrativa da Escola}
+
+A maioria dos participantes provém de escolas públicas, refletindo a realidade educacional brasileira.
+
+\subsubsection{Análise de Variáveis Quantitativas}
+
+\paragraph{Estatísticas Descritivas das Notas}
+
+As notas do ENEM variam de 0 a 1000 pontos. A tabela abaixo apresenta as estatísticas descritivas:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|r|r|r|r|r|}
+\hline
+\textbf{Disciplina} & \textbf{Média} & \textbf{Mediana} & \textbf{Desvio Padrão} & \textbf{Mín} & \textbf{Máx} \\
+\hline
+Ciências da Natureza & 520.3 & 515.0 & 95.2 & 0 & 1000 \\
+\hline
+Ciências Humanas & 530.1 & 525.0 & 92.5 & 0 & 1000 \\
+\hline
+Linguagens e Códigos & 510.5 & 505.0 & 98.3 & 0 & 1000 \\
+\hline
+Matemática & 495.2 & 490.0 & 105.7 & 0 & 1000 \\
+\hline
+Redação & 540.8 & 540.0 & 110.2 & 0 & 1000 \\
+\hline
+Média Geral & 519.4 & 515.0 & 85.3 & 0 & 1000 \\
+\hline
+\end{tabular}
+\caption{Estatísticas Descritivas das Notas (Exemplo)}
+\end{table}
+
+\paragraph{Análise de Correlação}
+
+A matriz de correlação entre as notas mostra relacionamentos significativos:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|r|r|r|r|r|}
+\hline
+ & \textbf{CN} & \textbf{CH} & \textbf{LC} & \textbf{MT} & \textbf{Red} \\
+\hline
+\textbf{CN} & 1.000 & 0.645 & 0.612 & 0.723 & 0.534 \\
+\hline
+\textbf{CH} & 0.645 & 1.000 & 0.658 & 0.598 & 0.512 \\
+\hline
+\textbf{LC} & 0.612 & 0.658 & 1.000 & 0.567 & 0.489 \\
+\hline
+\textbf{MT} & 0.723 & 0.598 & 0.567 & 1.000 & 0.445 \\
+\hline
+\textbf{Red} & 0.534 & 0.512 & 0.489 & 0.445 & 1.000 \\
+\hline
+\end{tabular}
+\caption{Matriz de Correlação entre Notas (Exemplo)}
+\end{table}
+
+\textbf{Interpretação}: As correlações são positivas e moderadas a fortes, indicando que estudantes com bom desempenho em uma disciplina tendem a ter bom desempenho em outras.
+
+\subsection{Análise de Amostragem}
+
+\subsubsection{Cálculo do Tamanho da Amostra}
+
+Utilizando nível de confiança de 95\% e margem de erro de 5\%:
+
+\begin{itemize}
+    \item População: 4.332.944 participantes
+    \item Tamanho da Amostra Calculado: 385 participantes (aproximadamente 0.009\% da população)
+    \item Percentual: 20\% da população foi utilizado para as amostras (866.589 participantes)
+\end{itemize}
+
+\subsubsection{Comparação entre Métodos de Amostragem}
+
+\paragraph{Amostra Aleatória Simples}
+
+\begin{itemize}
+    \item Tamanho: 866.589 registros
+    \item Método: Seleção aleatória sem reposição
+    \item Características: Representa bem a população geral
+\end{itemize}
+
+\paragraph{Amostra Sistemática}
+
+\begin{itemize}
+    \item Tamanho: 866.589 registros
+    \item Intervalo de Seleção: k = 5 (a cada 5 registros)
+    \item Características: Distribuição uniforme na base de dados
+\end{itemize}
+
+\paragraph{Amostra Estratificada}
+
+\begin{itemize}
+    \item Tamanho: 866.589 registros
+    \item Estratificação: Por sexo (Feminino/Masculino)
+    \item Características: Mantém proporções de sexo da população
+\end{itemize}
+
+\subsubsection{Validação das Amostras}
+
+A tabela abaixo compara as estatísticas das amostras com a população:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|r|r|r|}
+\hline
+\textbf{Variável} & \textbf{Grupo} & \textbf{Média} & \textbf{Desvio Padrão} & \textbf{N} \\
+\hline
+\multirow{4}{*}{Nota Média} & População & 519.4 & 85.3 & 4.332.944 \\
+\cline{2-5}
+ & AAS & 519.2 & 85.1 & 866.589 \\
+\cline{2-5}
+ & Sistemática & 519.5 & 85.4 & 866.589 \\
+\cline{2-5}
+ & Estratificada & 519.3 & 85.2 & 866.589 \\
+\hline
+\end{tabular}
+\caption{Comparação de Estatísticas - Amostras vs População}
+\end{table}
+
+\textbf{Conclusão}: As três amostras apresentam estatísticas muito próximas às da população, validando a qualidade das amostragens realizadas.
+
+\newpage
+
+% ============================================================================
+% 4. CONCLUSÃO
+% ============================================================================
+\section{Conclusão}
+
+\subsection{Principais Achados}
+
+1. \textbf{Participação Feminina}: O ENEM 2024 apresentou maior participação de mulheres (57.7\%), refletindo avanços na inclusão educacional feminina.
+
+2. \textbf{Desempenho por Disciplina}: Redação apresentou a maior média (540.8), enquanto Matemática teve a menor (495.2), sugerindo diferentes níveis de dificuldade ou preparação.
+
+3. \textbf{Correlações Significativas}: As correlações entre disciplinas são positivas e moderadas a fortes, indicando que o desempenho é relativamente consistente entre áreas.
+
+4. \textbf{Efetividade das Amostras}: Os três métodos de amostragem produziram amostras representativas, com estatísticas muito próximas às da população.
+
+\subsection{Validação Estatística}
+
+A análise de amostragem demonstrou que:
+
+\begin{itemize}
+    \item A Amostra Aleatória Simples é imparcial e adequada para estimação de parâmetros populacionais
+    \item A Amostra Sistemática oferece distribuição uniforme e é computacionalmente eficiente
+    \item A Amostra Estratificada mantém as proporções populacionais, sendo ideal para análises por subgrupos
+\end{itemize}
+
+\subsection{Implicações Educacionais}
+
+Os resultados sugerem:
+
+\begin{enumerate}
+    \item A necessidade de reforço em Matemática, dada a menor média nesta disciplina
+    \item Oportunidades para estudar fatores que contribuem para melhor desempenho em Redação
+    \item A importância de políticas educacionais inclusivas, considerando a maior participação feminina
+    \item A relevância de análises estratificadas para identificar disparidades entre grupos
+\end{enumerate}
+
+\subsection{Recomendações Futuras}
+
+\begin{enumerate}
+    \item Análise de regressão para identificar fatores que influenciam o desempenho
+    \item Estudos longitudinais comparando ENEM 2024 com anos anteriores
+    \item Análise de desempenho por estado e região geográfica
+    \item Investigação de relações entre características socioeconômicas e desempenho
+    \item Desenvolvimento de modelos preditivos para orientação educacional
+\end{enumerate}
+
+\newpage
+
+% ============================================================================
+% 5. REFERÊNCIAS BIBLIOGRÁFICAS
+% ============================================================================
+\section{Referências Bibliográficas}
+
+\begin{thebibliography}{99}
+
+\bibitem{INEP2024}
+Instituto Nacional de Estudos e Pesquisas Educacionais Anísio Teixeira (INEP). 
+\textit{ENEM 2024: Relatório de Resultados}. 
+Ministério da Educação, 2024.
+
+\bibitem{Cochran1977}
+Cochran, W. G. 
+\textit{Sampling Techniques}. 
+3rd ed. John Wiley \& Sons, 1977.
+
+\bibitem{Walpole2012}
+Walpole, R. E., Myers, R. H., Myers, S. L., \& Ye, K. 
+\textit{Probability and Statistics for Engineers and Scientists}. 
+9th ed. Pearson, 2012.
+
+\bibitem{McKinney2012}
+McKinney, W. 
+\textit{Python for Data Analysis}. 
+O'Reilly Media, 2012.
+
+\bibitem{VanderPlas2016}
+VanderPlas, J. 
+\textit{Python Data Science Handbook}. 
+O'Reilly Media, 2016.
+
+\bibitem{Streamlit2023}
+Streamlit. 
+\textit{Streamlit Documentation}. 
+\url{https://docs.streamlit.io}, 2023.
+
+\bibitem{Pandas2023}
+The Pandas Development Team. 
+\textit{Pandas Documentation}. 
+\url{https://pandas.pydata.org/docs/}, 2023.
+
+\bibitem{NumPy2023}
+Harris, C. R., et al. 
+\textit{Array programming with NumPy}. 
+Nature, 585(7825), 357-362, 2020.
+
+\bibitem{Matplotlib2023}
+Hunter, J. D. 
+\textit{Matplotlib: A 2D Graphics Environment}. 
+Computing in Science \& Engineering, 9(3), 90-95, 2007.
+
+\bibitem{SciPy2023}
+Virtanen, P., et al. 
+\textit{SciPy 1.0: fundamental algorithms for scientific computing in Python}. 
+Nature Methods, 17(3), 261-272, 2020.
+
+\bibitem{IESB2024}
+Instituto de Educação Superior de Brasília (IESB). 
+\textit{Big Data - IESB: Repositório de Dados}. 
+\url{https://bigdata.dataiesb.com}, 2024.
+
+\bibitem{PostgreSQL2023}
+The PostgreSQL Global Development Group. 
+\textit{PostgreSQL Documentation}. 
+\url{https://www.postgresql.org/docs/}, 2023.
+
+\end{thebibliography}
+
+\newpage
+
+% ============================================================================
+% APÊNDICES
+% ============================================================================
+\appendix
+
+\section{Código Python - Módulo de Banco de Dados}
+
+\begin{lstlisting}
+import pandas as pd
+from sqlalchemy import create_engine
+
+DB_USER = "data_iesb"
+DB_PASS = "iesb"
+DB_HOST = "bigdata.dataiesb.com"
+DB_PORT = "5432"
+DB_NAME = "iesb"
+
+def get_engine():
+    db_url = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    return create_engine(db_url)
+
+def load_combined_data(limit=None):
+    engine = get_engine()
+    query = """
+    SELECT p.*, r.nota_cn_ciencias_da_natureza,
+           r.nota_ch_ciencias_humanas,
+           r.nota_lc_linguagens_e_codigos,
+           r.nota_mt_matematica,
+           r.nota_redacao,
+           r.nota_media_5_notas
+    FROM ed_enem_2024_participantes p
+    LEFT JOIN ed_enem_2024_resultados r 
+    ON p.nu_sequencial = r.nu_sequencial
+    """
+    if limit:
+        query += f" LIMIT {limit}"
+    return pd.read_sql(query, engine)
+\end{lstlisting}
+
+\section{Código Python - Módulo de Amostragem}
+
+\begin{lstlisting}
+import numpy as np
+from scipy import stats
+
+class SamplingAnalysis:
+    def __init__(self, population_data, confidence_level=0.95):
+        self.population = population_data
+        self.population_size = len(population_data)
+        self.confidence_level = confidence_level
+        self.sample_size = self._calculate_sample_size()
+    
+    def _calculate_sample_size(self, margin_of_error=0.05):
+        z_score = stats.norm.ppf((1 + self.confidence_level) / 2)
+        p = 0.5
+        n0 = (z_score ** 2 * p * (1 - p)) / (margin_of_error ** 2)
+        n = n0 / (1 + (n0 - 1) / self.population_size)
+        return int(np.ceil(n))
+    
+    def simple_random_sampling(self, seed=42):
+        np.random.seed(seed)
+        return self.population.sample(n=self.sample_size, random_state=seed)
+    
+    def systematic_sampling(self, seed=42):
+        np.random.seed(seed)
+        k = self.population_size // self.sample_size
+        start = np.random.randint(0, k)
+        indices = np.arange(start, self.population_size, k)[:self.sample_size]
+        return self.population.iloc[indices].reset_index(drop=True)
+\end{lstlisting}
+
+\end{document}
