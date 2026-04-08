@@ -44,7 +44,7 @@ def load_database_data():
             r.nota_redacao,
             r.nota_media_5_notas
         FROM ed_enem_2024_participantes p
-        LEFT JOIN ed_enem_2024_resultados r ON p.nu_sequencial = r.nu_sequencial
+        LEFT JOIN ed_enem_2024_resultados r ON p.nu_sequencial::text = r.nu_sequencial::text
         LIMIT 50000
         """
         
