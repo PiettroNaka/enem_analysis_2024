@@ -12,7 +12,7 @@ warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="Análise ENEM 2024", page_icon="📊", layout="wide")
 
-# ── Conexão com timeout real via thread ──────────────────────────────────────
+# ── Conexão real ao banco ─────────────────────────────────────────────────────
 def _connect_and_load():
     from sqlalchemy import create_engine, text
     db_host     = st.secrets.get("db_host",     "bigdata.dataiesb.com")
@@ -23,11 +23,10 @@ def _connect_and_load():
 
     url = (f"postgresql+psycopg2://{db_user}:{db_password}"
            f"@{db_host}:{db_port}/{db_name}"
-           f"?connect_timeout=8&sslmode=prefer")
+           f"?connect_timeout=8&sslmode=disable")
 
-    engine = create_engine(url, pool_pre_ping=True,
-                           connect_args={"connect_timeout": 8,
-                                         "options": "-c statement_timeout=20000"})
+    engine = create_engine(url, pool_pre_ping=False,
+                           connect_args={"connect_timeout": 8})
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
 
@@ -52,17 +51,13 @@ def _connect_and_load():
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_database_data(timeout_sec=20):
-    """Tenta carregar do banco com timeout total garantido."""
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-            future = ex.submit(_connect_and_load)
-            return future.result(timeout=timeout_sec)
+            return ex.submit(_connect_and_load).result(timeout=timeout_sec)
     except concurrent.futures.TimeoutError:
-        st.sidebar.error(f"⏱ Banco não respondeu em {timeout_sec}s")
-        return None
+        return None, "timeout"
     except Exception as e:
-        st.sidebar.error(f"❌ Erro DB: {e}")
-        return None
+        return None, str(e)
 
 # ── Dados de exemplo ─────────────────────────────────────────────────────────
 def generate_example_data():
@@ -82,13 +77,19 @@ def generate_example_data():
 
 # ── Carregamento ─────────────────────────────────────────────────────────────
 use_db = st.secrets.get("use_database", True)
+using_example = False
+db_error = None
 
 with st.spinner("⏳ Conectando ao banco de dados..."):
     if use_db:
-        df_data = load_database_data(timeout_sec=20)
-        using_example = df_data is None
-        if using_example:
+        result = load_database_data(timeout_sec=20)
+        if isinstance(result, tuple):
+            df_data, db_error = result
+        else:
+            df_data = result
+        if df_data is None:
             df_data = generate_example_data()
+            using_example = True
     else:
         df_data = generate_example_data()
         using_example = True
@@ -96,52 +97,57 @@ with st.spinner("⏳ Conectando ao banco de dados..."):
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 st.sidebar.title("📊 Análise ENEM 2024")
 if using_example:
-    st.sidebar.warning("⚠️ Usando dados de exemplo\n\nO banco pode estar inacessível desta rede.")
+    st.sidebar.warning("⚠️ Dados de exemplo\n\n`bigdata.dataiesb.com` inacessível desta rede.")
 else:
-    st.sidebar.success("✅ Conectado ao Big Data-IESB")
+    st.sidebar.success("✅ Big Data-IESB conectado")
 
 page = st.sidebar.radio("Página:", ["Início","Análise","Amostragem","Comparação","Relatório"])
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# helpers
+def WIDTH(): return "stretch"
+
+# ═════════════════════════════════════════════════════════════════════════════
 # INÍCIO
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 if page == "Início":
     st.title("📊 Análise Exploratória — ENEM 2024")
 
     if using_example:
-        st.warning("⚠️ Exibindo dados de exemplo. O banco `bigdata.dataiesb.com` não foi alcançado.")
+        st.info(
+            "ℹ️ **Exibindo dados simulados.**  \n"
+            "O servidor `bigdata.dataiesb.com` não está acessível pela internet pública.  \n"
+            "Para usar dados reais, o banco precisa liberar conexões externas ou usar um túnel."
+        )
     else:
-        st.success("✅ Conectado ao Big Data-IESB!")
+        st.success("✅ Conectado ao Big Data-IESB — dados reais carregados!")
 
     st.write("""
     Bem-vindo à análise completa dos dados do ENEM 2024!
 
     **Funcionalidades:**
-    - 📈 Análise exploratória de dados
+    - 📈 Análise exploratória com gráficos interativos
     - 🎲 Três tipos de amostragem estatística
-    - 📋 Comparação de amostras vs população
-    - 📄 Relatório técnico
+    - 📋 Comparação de amostras × população
+    - 📄 Relatório técnico em PDF
     """)
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total de Registros", f"{len(df_data):,}")
-    col2.metric("Variáveis", len(df_data.columns))
-    col3.metric("Período", "2024")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total de Registros", f"{len(df_data):,}")
+    c2.metric("Variáveis", len(df_data.columns))
+    c3.metric("Período", "2024")
 
     st.subheader("Primeiros Registros")
-    st.dataframe(df_data.head(10), use_container_width=True)
+    st.dataframe(df_data.head(10), width=WIDTH())
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 # ANÁLISE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 elif page == "Análise":
     st.title("📈 Análise Exploratória")
-    st.success(f"✅ Dados carregados: {len(df_data):,} registros")
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total", f"{len(df_data):,}")
-    col2.metric("Colunas", len(df_data.columns))
-    col3.metric("Memória", f"{df_data.memory_usage(deep=True).sum()/1024**2:.1f} MB")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total", f"{len(df_data):,}")
+    c2.metric("Colunas", len(df_data.columns))
+    c3.metric("Memória", f"{df_data.memory_usage(deep=True).sum()/1024**2:.1f} MB")
 
     st.divider()
 
@@ -149,16 +155,20 @@ elif page == "Análise":
     st.subheader("📋 Variáveis Qualitativas")
     qual_cols = df_data.select_dtypes(include=['object']).columns.tolist()
     if qual_cols:
-        selected_qual = st.selectbox("Selecione:", qual_cols, key="qual")
+        sel_q = st.selectbox("Selecione a variável:", qual_cols, key="qual")
         c1, c2 = st.columns(2)
         with c1:
-            st.write("**Distribuição de frequência:**")
-            st.dataframe(df_data[selected_qual].value_counts().rename_axis(selected_qual).reset_index(name='Frequência'))
+            freq = (df_data[sel_q].value_counts()
+                    .rename_axis(sel_q).reset_index(name='Frequência'))
+            freq['%'] = (freq['Frequência'] / freq['Frequência'].sum() * 100).round(2)
+            st.dataframe(freq, width=WIDTH())
         with c2:
-            fig, ax = plt.subplots(figsize=(8, 5))
-            df_data[selected_qual].value_counts().plot(kind='barh', ax=ax, color='steelblue')
-            ax.set_title(f"Distribuição de {selected_qual}")
-            st.pyplot(fig, use_container_width=True)
+            fig, ax = plt.subplots(figsize=(7, 4))
+            df_data[sel_q].value_counts().plot(kind='barh', ax=ax, color='steelblue')
+            ax.set_xlabel("Frequência")
+            ax.set_title(f"Distribuição — {sel_q}")
+            plt.tight_layout()
+            st.pyplot(fig)
             plt.close('all')
 
     st.divider()
@@ -167,25 +177,26 @@ elif page == "Análise":
     st.subheader("📊 Variáveis Quantitativas")
     quant_cols = df_data.select_dtypes(include=[np.number]).columns.tolist()
     if quant_cols:
-        selected_quant = st.selectbox("Selecione:", quant_cols, key="quant")
+        sel_n = st.selectbox("Selecione a variável:", quant_cols, key="quant")
+        s = df_data[sel_n].dropna()
         c1, c2 = st.columns(2)
         with c1:
-            st.write("**Estatísticas descritivas:**")
-            s = df_data[selected_quant].dropna()
             stats = pd.DataFrame({
-                'Estatística': ['Média','Mediana','Desvio Padrão','Mínimo','Máximo','Q1','Q3'],
-                'Valor': [s.mean(), s.median(), s.std(), s.min(), s.max(),
-                          s.quantile(.25), s.quantile(.75)]
-            })
-            st.dataframe(stats.set_index('Estatística').round(2))
+                'Estatística': ['N','Média','Mediana','Desvio Padrão','Mínimo','Q1','Q3','Máximo'],
+                'Valor':       [len(s), s.mean(), s.median(), s.std(),
+                                s.min(), s.quantile(.25), s.quantile(.75), s.max()]
+            }).set_index('Estatística').round(2)
+            st.dataframe(stats, width=WIDTH())
         with c2:
-            fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-            axes[0].hist(df_data[selected_quant].dropna(), bins=30, color='steelblue', edgecolor='white')
-            axes[0].set_title("Histograma")
-            axes[1].boxplot(df_data[selected_quant].dropna(), vert=True)
+            fig, axes = plt.subplots(1, 2, figsize=(9, 4))
+            axes[0].hist(s, bins=30, color='steelblue', edgecolor='white')
+            axes[0].set_title("Histograma"); axes[0].set_xlabel(sel_n)
+            axes[1].boxplot(s, vert=True, patch_artist=True,
+                            boxprops=dict(facecolor='steelblue', color='white'),
+                            medianprops=dict(color='yellow'))
             axes[1].set_title("Box Plot")
             plt.tight_layout()
-            st.pyplot(fig, use_container_width=True)
+            st.pyplot(fig)
             plt.close('all')
 
     st.divider()
@@ -194,16 +205,17 @@ elif page == "Análise":
     st.subheader("🔗 Matriz de Correlação — Notas")
     note_cols = [c for c in quant_cols if 'nota' in c.lower()]
     if len(note_cols) > 1:
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, ax = plt.subplots(figsize=(10, 7))
         sns.heatmap(df_data[note_cols].corr(), annot=True, fmt='.2f',
-                    cmap='coolwarm', ax=ax, square=True)
-        ax.set_title("Correlação entre Notas")
-        st.pyplot(fig, use_container_width=True)
+                    cmap='coolwarm', ax=ax, square=True, linewidths=.5)
+        ax.set_title("Correlação entre Notas", pad=12)
+        plt.tight_layout()
+        st.pyplot(fig)
         plt.close('all')
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 # AMOSTRAGEM
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 elif page == "Amostragem":
     st.title("🎲 Amostragem Estatística")
     st.success(f"✅ População: {len(df_data):,} registros")
@@ -215,7 +227,7 @@ elif page == "Amostragem":
     from scipy import stats as sp_stats
     z  = sp_stats.norm.ppf((1 + conf) / 2)
     n0 = (z**2 * 0.5 * 0.5) / (margin**2)
-    n  = int(np.ceil(n0 / (1 + (n0 - 1) / len(df_data))))
+    n  = int(np.ceil(n0 / (1 + (n0-1) / len(df_data))))
 
     st.divider()
     c1, c2, c3 = st.columns(3)
@@ -226,39 +238,34 @@ elif page == "Amostragem":
 
     if st.button("🎲 Gerar Amostras", type="primary"):
         with st.spinner("Gerando amostras..."):
-            # Aleatória Simples
             s1 = df_data.sample(n=min(n, len(df_data)), random_state=42)
 
-            # Sistemática
-            k       = max(1, len(df_data) // n)
-            start   = np.random.randint(0, k)
-            indices = np.arange(start, len(df_data), k)[:n]
-            s2 = df_data.iloc[indices].reset_index(drop=True)
+            k = max(1, len(df_data) // n)
+            start = np.random.randint(0, k)
+            s2 = df_data.iloc[np.arange(start, len(df_data), k)[:n]].reset_index(drop=True)
 
-            # Estratificada por sexo
-            stratum_col = 'tp_sexo' if 'tp_sexo' in df_data.columns else None
-            if stratum_col:
-                sizes   = (df_data[stratum_col].value_counts() / len(df_data) * n).astype(int)
-                samples = [df_data[df_data[stratum_col]==s].sample(
-                               n=min(sz, (df_data[stratum_col]==s).sum()), random_state=42)
+            if 'tp_sexo' in df_data.columns:
+                sizes   = (df_data['tp_sexo'].value_counts() / len(df_data) * n).astype(int)
+                samples = [df_data[df_data['tp_sexo']==s].sample(
+                               n=min(sz, (df_data['tp_sexo']==s).sum()), random_state=42)
                            for s, sz in sizes.items() if sz > 0]
                 s3 = pd.concat(samples, ignore_index=True)
             else:
                 s3 = s1.copy()
 
             st.session_state.update(s1=s1, s2=s2, s3=s3, pop=df_data)
-        st.success("✅ Amostras geradas!")
+        st.success("✅ Amostras geradas com sucesso!")
 
     if 's1' in st.session_state:
         tab1, tab2, tab3 = st.tabs(["Aleatória Simples","Sistemática","Estratificada"])
-        for tab, key, label in [(tab1,'s1','Aleatória'), (tab2,'s2','Sistemática'), (tab3,'s3','Estratificada')]:
+        for tab, key in [(tab1,'s1'),(tab2,'s2'),(tab3,'s3')]:
             with tab:
                 st.write(f"**Tamanho:** {len(st.session_state[key]):,} registros")
-                st.dataframe(st.session_state[key].head(10), use_container_width=True)
+                st.dataframe(st.session_state[key].head(10), width=WIDTH())
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 # COMPARAÇÃO
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 elif page == "Comparação":
     st.title("📋 Comparação de Amostras × População")
 
@@ -271,31 +278,31 @@ elif page == "Comparação":
         if note_cols:
             rows = []
             for col in note_cols:
-                for label, sample in [("População", st.session_state.pop),
-                                       ("Aleatória Simples", st.session_state.s1),
-                                       ("Sistemática",       st.session_state.s2),
-                                       ("Estratificada",     st.session_state.s3)]:
+                for label, sample in [("População",        st.session_state.pop),
+                                       ("Aleat. Simples",  st.session_state.s1),
+                                       ("Sistemática",     st.session_state.s2),
+                                       ("Estratificada",   st.session_state.s3)]:
                     s = sample[col].dropna()
-                    rows.append({"Grupo": label, "Variável": col,
-                                 "Média": round(s.mean(), 2),
-                                 "Desvio Padrão": round(s.std(), 2),
-                                 "N": len(s)})
-            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+                    rows.append({"Grupo":label, "Variável":col,
+                                 "Média":round(s.mean(),2),
+                                 "Desvio Padrão":round(s.std(),2), "N":len(s)})
+            st.dataframe(pd.DataFrame(rows), width=WIDTH())
 
-            # Gráfico de comparação de médias
             col_sel = st.selectbox("Variável para gráfico:", note_cols)
-            df_plot = pd.DataFrame([r for r in rows if r['Variável'] == col_sel])
+            df_plot = pd.DataFrame([r for r in rows if r['Variável']==col_sel])
             fig, ax = plt.subplots(figsize=(8, 4))
             colors = ['#0284c7','#22c55e','#f59e0b','#a855f7']
-            ax.bar(df_plot['Grupo'], df_plot['Média'], color=colors, edgecolor='white')
+            bars = ax.bar(df_plot['Grupo'], df_plot['Média'], color=colors, edgecolor='white', width=0.6)
+            ax.bar_label(bars, fmt='%.1f', padding=3)
             ax.set_title(f"Comparação de Médias — {col_sel}")
             ax.set_ylabel("Média")
-            st.pyplot(fig, use_container_width=True)
+            plt.tight_layout()
+            st.pyplot(fig)
             plt.close('all')
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 # RELATÓRIO
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 elif page == "Relatório":
     st.title("📄 Relatório Técnico")
     st.write("Relatório técnico completo com análise exploratória, amostragem e conclusões.")
