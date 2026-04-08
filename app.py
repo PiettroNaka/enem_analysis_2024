@@ -279,7 +279,12 @@ elif page == "Amostragem":
             else:
                 s3 = s1.copy()
 
-            st.session_state.update(s1=s1, s2=s2, s3=s3, pop=df_data)
+            st.session_state.update(
+                s1=s1,
+                s2=s2,
+                s3=s3,
+                population_df=df_data,
+            )
         st.success("✅ Amostras geradas com sucesso!")
 
     if 's1' in st.session_state:
@@ -304,10 +309,11 @@ elif page == "Comparação":
         if note_cols:
             rows = []
             for col in note_cols:
-                for label, sample in [("População",        st.session_state.pop),
-                                       ("Aleat. Simples",  st.session_state.s1),
-                                       ("Sistemática",     st.session_state.s2),
-                                       ("Estratificada",   st.session_state.s3)]:
+                population = st.session_state.get("population_df", df_data)
+                for label, sample in [("População",        population),
+                                       ("Aleat. Simples",  st.session_state["s1"]),
+                                       ("Sistemática",     st.session_state["s2"]),
+                                       ("Estratificada",   st.session_state["s3"])]:
                     s = sample[col].dropna()
                     rows.append({"Grupo":label, "Variável":col,
                                  "Média":round(s.mean(),2),
