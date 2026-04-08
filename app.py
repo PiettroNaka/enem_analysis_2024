@@ -53,11 +53,24 @@ def _connect_and_load():
 def load_database_data(timeout_sec=20):
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-            return ex.submit(_connect_and_load).result(timeout=timeout_sec)
+            df = ex.submit(_connect_and_load).result(timeout=timeout_sec)
+            return df, None
     except concurrent.futures.TimeoutError:
         return None, "timeout"
     except Exception as e:
         return None, str(e)
+
+
+def _safe_int(value, default):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_timeout_seconds(value, default=20):
+    timeout = _safe_int(value, default)
+    return max(1, timeout)
 
 # ── Dados de exemplo ─────────────────────────────────────────────────────────
 def generate_example_data():
@@ -77,27 +90,36 @@ def generate_example_data():
 
 # ── Carregamento ─────────────────────────────────────────────────────────────
 use_db = st.secrets.get("use_database", True)
+db_timeout = _normalize_timeout_seconds(st.secrets.get("db_timeout_seconds", 20), 20)
 using_example = False
 db_error = None
+db_status_msg = ""
 
 with st.spinner("⏳ Conectando ao banco de dados..."):
     if use_db:
-        result = load_database_data(timeout_sec=20)
-        if isinstance(result, tuple):
-            df_data, db_error = result
-        else:
-            df_data = result
+        df_data, db_error = load_database_data(timeout_sec=db_timeout)
         if df_data is None:
             df_data = generate_example_data()
             using_example = True
+            if db_error == "timeout":
+                db_status_msg = f"Banco não respondeu em {db_timeout}s."
+            elif db_error:
+                db_status_msg = "Falha ao conectar no banco."
+            else:
+                db_status_msg = "Banco indisponível nesta rede."
     else:
         df_data = generate_example_data()
         using_example = True
+        db_status_msg = "Conexão com banco desativada (use_database=false)."
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 st.sidebar.title("📊 Análise ENEM 2024")
 if using_example:
-    st.sidebar.warning("⚠️ Dados de exemplo\n\n`bigdata.dataiesb.com` inacessível desta rede.")
+    st.sidebar.warning(
+        "⚠️ Usando dados de exemplo\n\n"
+        f"{db_status_msg}\n"
+        "O host bigdata.dataiesb.com pode não estar acessível desta rede."
+    )
 else:
     st.sidebar.success("✅ Big Data-IESB conectado")
 
@@ -113,10 +135,14 @@ if page == "Início":
     st.title("📊 Análise Exploratória — ENEM 2024")
 
     if using_example:
+        detail = ""
+        if db_error and db_error not in {"timeout"}:
+            detail = f"  \nDetalhe técnico: `{db_error}`."
         st.info(
             "ℹ️ **Exibindo dados simulados.**  \n"
-            "O servidor `bigdata.dataiesb.com` não está acessível pela internet pública.  \n"
+            f"{db_status_msg}  \n"
             "Para usar dados reais, o banco precisa liberar conexões externas ou usar um túnel."
+            f"{detail}"
         )
     else:
         st.success("✅ Conectado ao Big Data-IESB — dados reais carregados!")
