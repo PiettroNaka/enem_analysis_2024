@@ -6,18 +6,19 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
+import time
 warnings.filterwarnings('ignore')
 
 # Configuração
 st.set_page_config(page_title="Análise ENEM 2024", page_icon="📊", layout="wide")
 
-# Função para carregar dados do banco de dados
-@st.cache_data(ttl=3600)
+# Função para carregar dados do banco de dados com timeout
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_database_data():
-    """Carrega dados do Big Data-IESB"""
+    """Carrega dados do Big Data-IESB com timeout"""
     try:
+        from sqlalchemy import create_engine, text
         import streamlit as st
-        from sqlalchemy import create_engine
         
         # Obter credenciais dos secrets
         db_host = st.secrets.get("db_host", "bigdata.dataiesb.com")
@@ -27,13 +28,17 @@ def load_database_data():
         db_password = st.secrets.get("db_password", "iesb")
         db_schema = st.secrets.get("db_schema", "public")
         
-        # Criar string de conexão
-        db_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+        # Criar string de conexão com timeout
+        db_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?connect_timeout=10"
         
         # Conectar ao banco
-        engine = create_engine(db_url)
+        engine = create_engine(db_url, connect_args={"connect_timeout": 10})
         
-        # Carregar dados
+        # Testar conexão
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        
+        # Carregar dados com LIMIT menor para melhor performance
         query = """
         SELECT 
             p.*,
@@ -45,7 +50,7 @@ def load_database_data():
             r.nota_media_5_notas
         FROM ed_enem_2024_participantes p
         LEFT JOIN ed_enem_2024_resultados r ON p.nu_sequencial::text = r.nu_sequencial::text
-        LIMIT 50000
+        LIMIT 10000
         """
         
         df = pd.read_sql(query, engine)
@@ -53,8 +58,6 @@ def load_database_data():
         return df
     
     except Exception as e:
-        st.warning(f"⚠️ Não foi possível conectar ao banco de dados: {str(e)}")
-        st.info("Usando dados de exemplo para demonstração...")
         return None
 
 # Função para gerar dados de exemplo
@@ -73,19 +76,20 @@ def generate_example_data():
         'nota_redacao': np.random.normal(540, 100, pop_size),
     })
 
-# Carregar dados
-use_db = st.secrets.get("use_database", False)
-
-if use_db:
-    df_data = load_database_data()
-    if df_data is None:
+# Carregar dados com spinner
+with st.spinner("⏳ Carregando dados..."):
+    use_db = st.secrets.get("use_database", False)
+    
+    if use_db:
+        df_data = load_database_data()
+        if df_data is None:
+            df_data = generate_example_data()
+            using_example = True
+        else:
+            using_example = False
+    else:
         df_data = generate_example_data()
         using_example = True
-    else:
-        using_example = False
-else:
-    df_data = generate_example_data()
-    using_example = True
 
 # Sidebar
 st.sidebar.title("📊 Análise ENEM 2024")
